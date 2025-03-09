@@ -64,6 +64,7 @@ interface FileState {
   nationalIdBack: File | null;
   educationCertificate: File | null;
   cv: File | null;
+  criminalRecord: File | null;
 }
 
 export default function PersonalInfoPage() {
@@ -74,6 +75,7 @@ export default function PersonalInfoPage() {
     nationalIdBack: null,
     educationCertificate: null,
     cv: null,
+    criminalRecord: null,
   });
   const [fileErrors, setFileErrors] = useState<Record<string, string>>({});
 
@@ -249,6 +251,7 @@ export default function PersonalInfoPage() {
               <div>
                 <FileUpload
                   label="صورة وجه البطاقة"
+                  name="nationalIdFront"
                   accept=".jpg,.jpeg,.png"
                   maxSize={2}
                   onChange={handleFileChange('nationalIdFront')}
@@ -259,6 +262,7 @@ export default function PersonalInfoPage() {
               <div>
                 <FileUpload
                   label="صورة ظهر البطاقة"
+                  name="nationalIdBack"
                   accept=".jpg,.jpeg,.png"
                   maxSize={2}
                   onChange={handleFileChange('nationalIdBack')}
@@ -295,6 +299,7 @@ export default function PersonalInfoPage() {
               <div>
                 <FileUpload
                   label="شهادة المؤهل"
+                  name="educationCertificate"
                   accept=".pdf,.jpg,.jpeg,.png"
                   maxSize={2}
                   onChange={handleFileChange('educationCertificate')}
@@ -308,11 +313,25 @@ export default function PersonalInfoPage() {
             <div>
               <FileUpload
                 label="السيرة الذاتية"
+                name="cv"
                 accept=".pdf,.doc,.docx"
                 maxSize={5}
                 onChange={handleFileChange('cv')}
                 required
                 error={fileErrors.cv}
+              />
+            </div>
+
+            {/* Criminal Record */}
+            <div>
+              <FileUpload
+                label="صحيفة الحالة الجنائية"
+                name="criminalRecord"
+                accept=".jpg,.jpeg,.png,.pdf"
+                maxSize={5}
+                onChange={handleFileChange('criminalRecord')}
+                required
+                error={fileErrors.criminalRecord}
               />
             </div>
 

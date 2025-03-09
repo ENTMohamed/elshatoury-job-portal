@@ -11,48 +11,34 @@ export default function Notification() {
       containerClassName=""
       containerStyle={{}}
       toastOptions={{
-        // Default options for all toasts
         className: '',
         duration: 5000,
         style: {
-          background: '#363636',
-          color: '#fff',
+          background: '#fff',
+          color: '#363636',
         },
-        // Default options for specific types
         success: {
           duration: 3000,
-          theme: {
+          style: {
+            background: '#DCFCE7',
+            color: '#059669',
+            border: '1px solid #059669',
+          },
+          iconTheme: {
             primary: '#059669',
             secondary: '#DCFCE7',
           },
-          style: {
-            background: '#DCFCE7',
-            color: '#065F46',
-            border: '1px solid #059669',
-          },
         },
         error: {
-          duration: 4000,
-          theme: {
-            primary: '#DC2626',
-            secondary: '#FEE2E2',
-          },
+          duration: 3000,
           style: {
             background: '#FEE2E2',
-            color: '#991B1B',
+            color: '#DC2626',
             border: '1px solid #DC2626',
           },
-        },
-        loading: {
-          duration: Infinity,
-          theme: {
-            primary: '#2563EB',
-            secondary: '#DBEAFE',
-          },
-          style: {
-            background: '#DBEAFE',
-            color: '#1E40AF',
-            border: '1px solid #2563EB',
+          iconTheme: {
+            primary: '#DC2626',
+            secondary: '#FEE2E2',
           },
         },
       }}
