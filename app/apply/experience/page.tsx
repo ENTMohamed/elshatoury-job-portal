@@ -6,11 +6,16 @@ import { useFormik, FieldArray, FormikProvider } from 'formik';
 import * as Yup from 'yup';
 import ProgressBar from '../../components/ProgressBar';
 import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { toast } from 'react-hot-toast';
 
 const steps = [
   {
     title: 'اختيار الوظيفة',
     description: 'حدد الوظيفة التي تريد التقدم لها',
+  },
+  {
+    title: 'متطلبات إضافية',
+    description: 'أدخل المتطلبات الإضافية للوظيفة',
   },
   {
     title: 'البيانات الشخصية',
@@ -62,6 +67,7 @@ const experienceValidationSchema = Yup.object({
 export default function ExperiencePage() {
   const router = useRouter();
   const [selectedJob, setSelectedJob] = useState<any>(null);
+  const [currentStep, setCurrentStep] = useState(3);
 
   useEffect(() => {
     const jobData = localStorage.getItem('selectedJob');
@@ -72,7 +78,15 @@ export default function ExperiencePage() {
       return;
     }
 
-    setSelectedJob(JSON.parse(jobData));
+    const job = JSON.parse(jobData);
+    setSelectedJob(job);
+
+    // Set correct step based on job type
+    if (job.id === 'pharmacist') {
+      setCurrentStep(3);
+    } else {
+      setCurrentStep(2);
+    }
   }, [router]);
 
   const formik = useFormik<FormValues>({
@@ -89,9 +103,20 @@ export default function ExperiencePage() {
       ],
     },
     validationSchema: experienceValidationSchema,
-    onSubmit: (values) => {
-      localStorage.setItem('experiences', JSON.stringify(values));
-      router.push('/apply/review');
+    onSubmit: async (values) => {
+      try {
+        // Store experiences in localStorage
+        localStorage.setItem('experiences', JSON.stringify(values));
+        
+        // Show success message
+        toast.success('تم حفظ الخبرات بنجاح');
+        
+        // Navigate to review page
+        router.push('/apply/review');
+      } catch (error) {
+        console.error('Error saving experiences:', error);
+        toast.error('حدث خطأ أثناء حفظ الخبرات');
+      }
     },
   });
 
@@ -119,7 +144,7 @@ export default function ExperiencePage() {
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="max-w-3xl mx-auto">
-        <ProgressBar currentStep={2} totalSteps={4} steps={steps} />
+        <ProgressBar currentStep={currentStep} totalSteps={5} steps={steps} />
 
         <div className="mt-10 bg-white shadow-sm rounded-lg p-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">الخبرات السابقة</h2>

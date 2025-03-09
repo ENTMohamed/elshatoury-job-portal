@@ -33,6 +33,7 @@ export default function ReviewPage() {
     experiences: null,
   });
   const [submitting, setSubmitting] = useState(false);
+  const [currentStep, setCurrentStep] = useState(4);
 
   useEffect(() => {
     const job = localStorage.getItem('selectedJob');
@@ -44,11 +45,19 @@ export default function ReviewPage() {
       return;
     }
 
+    const jobData = JSON.parse(job);
     setFormData({
-      job: JSON.parse(job),
+      job: jobData,
       personalInfo: JSON.parse(personalInfo),
       experiences: JSON.parse(experiences),
     });
+
+    // Set correct step based on job type
+    if (jobData.id === 'pharmacist') {
+      setCurrentStep(4);
+    } else {
+      setCurrentStep(3);
+    }
   }, [router]);
 
   const handleEdit = (section: string) => {
@@ -66,8 +75,11 @@ export default function ReviewPage() {
   };
 
   const handleSubmit = async () => {
+    if (submitting) return;
+
     try {
       setSubmitting(true);
+      toast.loading('جاري تقديم الطلب...');
 
       // Create FormData object
       const submitFormData = new FormData();
@@ -86,20 +98,25 @@ export default function ReviewPage() {
       // Add files
       Object.entries(storedFiles).forEach(([key, fileData]: [string, any]) => {
         if (fileData && fileData.data) {
-          // Reconstruct the file from stored data
-          const uint8Array = new Uint8Array(fileData.data);
-          const blob = new Blob([uint8Array], { type: fileData.type });
-          const file = new File([blob], fileData.name, {
-            type: fileData.type,
-            lastModified: fileData.lastModified
-          });
-          submitFormData.append(key, file);
+          try {
+            // Reconstruct the file from stored data
+            const uint8Array = new Uint8Array(fileData.data);
+            const blob = new Blob([uint8Array], { type: fileData.type });
+            const file = new File([blob], fileData.name, {
+              type: fileData.type,
+              lastModified: fileData.lastModified
+            });
+            submitFormData.append(key, file);
+          } catch (error) {
+            console.error(`Error processing file ${key}:`, error);
+            throw new Error('حدث خطأ في معالجة الملفات');
+          }
         }
       });
 
       // Add experiences
-      if (formData.experiences && formData.experiences.length > 0) {
-        submitFormData.append('experiences', JSON.stringify(formData.experiences));
+      if (formData.experiences && formData.experiences.experiences.length > 0) {
+        submitFormData.append('experiences', JSON.stringify(formData.experiences.experiences));
       }
 
       // Submit to backend
@@ -115,6 +132,7 @@ export default function ReviewPage() {
       }
 
       // Show success message
+      toast.dismiss();
       toast.success('تم تقديم طلبك بنجاح! سنتواصل معك قريباً');
       
       // Clear the form data from storage
@@ -124,10 +142,13 @@ export default function ReviewPage() {
       localStorage.removeItem('pharmacistFiles');
       sessionStorage.removeItem('applicationFiles');
 
-      // Redirect to home page
-      router.push('/');
+      // Redirect to home page after a short delay
+      setTimeout(() => {
+        router.push('/');
+      }, 2000);
     } catch (error: any) {
       console.error('Application submission error:', error);
+      toast.dismiss();
       toast.error(error.message || 'حدث خطأ أثناء تقديم الطلب. يرجى المحاولة مرة أخرى.');
     } finally {
       setSubmitting(false);
@@ -141,7 +162,7 @@ export default function ReviewPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="max-w-3xl mx-auto">
-        <ProgressBar currentStep={3} totalSteps={4} steps={steps} />
+        <ProgressBar currentStep={currentStep} totalSteps={5} steps={steps} />
 
         <div className="mt-10 bg-white shadow-sm rounded-lg p-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">مراجعة البيانات</h2>
@@ -258,15 +279,27 @@ export default function ReviewPage() {
             <button
               type="button"
               onClick={() => router.back()}
-              className="bg-gray-100 text-gray-800 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              disabled={submitting}
+              className="bg-gray-100 text-gray-800 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
             >
               رجوع
             </button>
             <button
               onClick={handleSubmit}
-              className="bg-blue-600 text-white px-6 py-2 rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              disabled={submitting}
+              className="bg-blue-600 text-white px-6 py-2 rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 flex items-center"
             >
-              تقديم الطلب
+              {submitting ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  جاري التقديم...
+                </>
+              ) : (
+                'تقديم الطلب'
+              )}
             </button>
           </div>
         </div>

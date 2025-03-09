@@ -6,6 +6,7 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import ProgressBar from '../../components/ProgressBar';
 import FileUpload from '../../components/FileUpload';
+import { toast } from 'react-hot-toast';
 
 const steps = [
   {
@@ -74,6 +75,7 @@ export default function PersonalInfoPage() {
     educationCertificate: null,
     cv: null,
   });
+  const [fileErrors, setFileErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const jobData = localStorage.getItem('selectedJob');
@@ -95,6 +97,29 @@ export default function PersonalInfoPage() {
     }
   }, [router]);
 
+  const validateFiles = () => {
+    const errors: Record<string, string> = {};
+    
+    // Always required files
+    if (!files.nationalIdFront) {
+      errors.nationalIdFront = 'صورة وجه البطاقة مطلوبة';
+    }
+    if (!files.nationalIdBack) {
+      errors.nationalIdBack = 'صورة ظهر البطاقة مطلوبة';
+    }
+    if (!files.cv) {
+      errors.cv = 'السيرة الذاتية مطلوبة';
+    }
+    
+    // Education certificate is required if education level is not 'none'
+    if (formik.values.educationLevel !== 'none' && !files.educationCertificate) {
+      errors.educationCertificate = 'شهادة المؤهل مطلوبة';
+    }
+
+    setFileErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const formik = useFormik({
     initialValues: {
       fullName: '',
@@ -105,6 +130,13 @@ export default function PersonalInfoPage() {
     },
     validationSchema,
     onSubmit: async (values) => {
+      // Validate files first
+      if (!validateFiles()) {
+        // Show error toast
+        toast.error('يرجى رفع جميع المستندات المطلوبة');
+        return;
+      }
+
       // Get pharmacist files if applicable
       let allFiles = { ...files };
       if (selectedJob?.id === 'pharmacist') {
@@ -131,33 +163,42 @@ export default function PersonalInfoPage() {
       }));
 
       // Store file data in sessionStorage
-      const fileData = await Promise.all(
-        Object.entries(allFiles).map(async ([key, file]) => {
-          if (file instanceof File) {
-            const arrayBuffer = await file.arrayBuffer();
-            return [key, {
-              name: file.name,
-              type: file.type,
-              lastModified: file.lastModified,
-              data: Array.from(new Uint8Array(arrayBuffer))
-            }];
-          }
-          return [key, null];
-        })
-      );
+      try {
+        const fileData = await Promise.all(
+          Object.entries(allFiles).map(async ([key, file]) => {
+            if (file instanceof File) {
+              const arrayBuffer = await file.arrayBuffer();
+              return [key, {
+                name: file.name,
+                type: file.type,
+                lastModified: file.lastModified,
+                data: Array.from(new Uint8Array(arrayBuffer))
+              }];
+            }
+            return [key, null];
+          })
+        );
 
-      const existingFiles = JSON.parse(sessionStorage.getItem('applicationFiles') || '{}');
-      sessionStorage.setItem('applicationFiles', JSON.stringify({
-        ...existingFiles,
-        ...Object.fromEntries(fileData)
-      }));
+        const existingFiles = JSON.parse(sessionStorage.getItem('applicationFiles') || '{}');
+        sessionStorage.setItem('applicationFiles', JSON.stringify({
+          ...existingFiles,
+          ...Object.fromEntries(fileData)
+        }));
 
-      router.push('/apply/experience');
+        router.push('/apply/experience');
+      } catch (error) {
+        console.error('Error storing files:', error);
+        toast.error('حدث خطأ أثناء حفظ الملفات');
+      }
     },
   });
 
   const handleFileChange = (field: string) => (file: File | null) => {
     setFiles((prev) => ({ ...prev, [field]: file }));
+    // Clear error when file is uploaded
+    if (file) {
+      setFileErrors((prev) => ({ ...prev, [field]: '' }));
+    }
   };
 
   if (!selectedJob) return null;
@@ -212,6 +253,7 @@ export default function PersonalInfoPage() {
                   maxSize={2}
                   onChange={handleFileChange('nationalIdFront')}
                   required
+                  error={fileErrors.nationalIdFront}
                 />
               </div>
               <div>
@@ -221,6 +263,7 @@ export default function PersonalInfoPage() {
                   maxSize={2}
                   onChange={handleFileChange('nationalIdBack')}
                   required
+                  error={fileErrors.nationalIdBack}
                 />
               </div>
             </div>
@@ -256,6 +299,7 @@ export default function PersonalInfoPage() {
                   maxSize={2}
                   onChange={handleFileChange('educationCertificate')}
                   required
+                  error={fileErrors.educationCertificate}
                 />
               </div>
             )}
@@ -268,6 +312,7 @@ export default function PersonalInfoPage() {
                 maxSize={5}
                 onChange={handleFileChange('cv')}
                 required
+                error={fileErrors.cv}
               />
             </div>
 
