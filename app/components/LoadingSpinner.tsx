@@ -3,6 +3,7 @@ import React from 'react';
 interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg';
   color?: string;
+  className?: string;
 }
 
 const sizes = {
@@ -11,10 +12,14 @@ const sizes = {
   lg: 'h-8 w-8'
 };
 
-export default function LoadingSpinner({ size = 'md', color = 'text-white' }: LoadingSpinnerProps) {
+export default function LoadingSpinner({ 
+  size = 'md', 
+  color = 'text-white',
+  className = '' 
+}: LoadingSpinnerProps) {
   return (
     <svg 
-      className={`animate-spin ${sizes[size]} ${color}`} 
+      className={`animate-spin ${sizes[size]} ${color} ${className}`} 
       xmlns="http://www.w3.org/2000/svg" 
       fill="none" 
       viewBox="0 0 24 24"
