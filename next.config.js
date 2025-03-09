@@ -5,13 +5,6 @@ const nextConfig = {
   images: {
     domains: ['res.cloudinary.com'],
   },
-  // Optimize build output
-  output: 'standalone',
-  // Enable static optimization where possible
-  experimental: {
-    optimizeCss: true,
-    optimizePackageImports: ['@heroicons/react'],
-  },
   // Configure headers for security
   async headers() {
     return [
