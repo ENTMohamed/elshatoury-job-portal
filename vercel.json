@@ -10,5 +10,10 @@
     "deploymentEnabled": {
       "main": true
     }
+  },
+  "github": {
+    "enabled": true,
+    "silent": false,
+    "autoAlias": true
   }
 } 
