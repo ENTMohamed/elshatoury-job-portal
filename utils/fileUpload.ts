@@ -7,20 +7,31 @@ export const readFileAsArrayBuffer = (file: File): Promise<ArrayBuffer> => {
   });
 };
 
-export const storeFile = async (key: string, file: File) => {
+export const storeFile = async (key: string, file: File): Promise<boolean> => {
   try {
-    const arrayBuffer = await readFileAsArrayBuffer(file);
-    const fileData = {
-      name: file.name,
-      type: file.type,
-      size: file.size,
-      lastModified: file.lastModified,
-      data: Array.from(new Uint8Array(arrayBuffer))
-    };
-    sessionStorage.setItem(key, JSON.stringify(fileData));
-    return true;
+    const reader = new FileReader();
+    
+    return new Promise((resolve) => {
+      reader.onload = () => {
+        try {
+          const base64String = reader.result as string;
+          sessionStorage.setItem(key, base64String);
+          resolve(true);
+        } catch (error) {
+          console.error('Error storing file:', error);
+          resolve(false);
+        }
+      };
+      
+      reader.onerror = () => {
+        console.error('Error reading file');
+        resolve(false);
+      };
+      
+      reader.readAsDataURL(file);
+    });
   } catch (error) {
-    console.error('Error storing file:', error);
+    console.error('Error in storeFile:', error);
     return false;
   }
 };
@@ -44,8 +55,10 @@ export const retrieveFile = (key: string): File | null => {
 
 export const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '0 Bytes';
+
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
+
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }; 

@@ -12,7 +12,7 @@ interface FileUploadProps {
   required?: boolean;
   accept?: string;
   maxSize?: number;
-  onFileChange: (file: File | null) => void;
+  onChange: (file: File | null) => void;
   initialFile?: File | null;
   error?: string;
 }
@@ -23,7 +23,7 @@ export default function FileUpload({
   required = false,
   accept = '.pdf,.jpg,.jpeg,.png',
   maxSize = fileValidation.maxSize,
-  onFileChange,
+  onChange,
   initialFile = null,
   error,
 }: FileUploadProps) {
@@ -50,14 +50,14 @@ export default function FileUpload({
       }
 
       setFile(selectedFile);
-      onFileChange(selectedFile);
+      onChange(selectedFile);
     } catch (error) {
       console.error('File upload error:', error);
       setUploadError('حدث خطأ أثناء رفع الملف');
     } finally {
       setIsUploading(false);
     }
-  }, [name, onFileChange]);
+  }, [name, onChange]);
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -88,9 +88,9 @@ export default function FileUpload({
 
   const removeFile = useCallback(() => {
     setFile(null);
-    onFileChange(null);
+    onChange(null);
     sessionStorage.removeItem(name);
-  }, [name, onFileChange]);
+  }, [name, onChange]);
 
   return (
     <div>

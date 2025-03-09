@@ -43,12 +43,23 @@ export const experienceSchema = Yup.object({
 
 export const fileValidation = {
   maxSize: 5 * 1024 * 1024, // 5MB
-  allowedTypes: ['image/jpeg', 'image/png', 'application/pdf'],
-  validateFile: (file: File) => {
-    if (!file) return 'الملف مطلوب';
-    if (file.size > fileValidation.maxSize) return 'حجم الملف يجب أن لا يتجاوز 5 ميجابايت';
-    if (!fileValidation.allowedTypes.includes(file.type)) 
-      return 'نوع الملف غير مسموح به. الأنواع المسموح بها: JPG, PNG, PDF';
+
+  validateFile(file: File): string | null {
+    if (file.size > this.maxSize) {
+      return `حجم الملف كبير جداً. الحد الأقصى المسموح به هو ${this.maxSize / (1024 * 1024)}MB`;
+    }
+
+    const allowedTypes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/jpg',
+      'image/png'
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      return 'نوع الملف غير مسموح به. يرجى اختيار ملف PDF أو JPG أو PNG';
+    }
+
     return null;
   }
 }; 

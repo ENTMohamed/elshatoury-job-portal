@@ -1,19 +1,20 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
-    }
-  ],
-  "git": {
-    "deploymentEnabled": {
-      "main": true
-    }
-  },
-  "github": {
-    "enabled": true,
-    "silent": false,
-    "autoAlias": true
+  "buildCommand": "next build",
+  "devCommand": "next dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "regions": ["fra1"],
+  "env": {
+    "MONGODB_URI": "@mongodb_uri",
+    "JWT_SECRET": "@jwt_secret",
+    "SENDGRID_API_KEY": "@sendgrid_api_key",
+    "EMAIL_FROM": "@email_from",
+    "EMAIL_FROM_NAME": "@email_from_name",
+    "CLOUDINARY_CLOUD_NAME": "@cloudinary_cloud_name",
+    "CLOUDINARY_API_KEY": "@cloudinary_api_key",
+    "CLOUDINARY_API_SECRET": "@cloudinary_api_secret",
+    "ADMIN_USERNAME": "@admin_username",
+    "ADMIN_PASSWORD": "@admin_password"
   }
 } 
