@@ -1,111 +1,78 @@
 import { NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
-import { Application } from '@/lib/models/application';
-import { uploadFile } from '@/lib/upload';
-import { sendEmail } from '@/lib/email';
+import prisma from '@/lib/prisma';
+import { verify } from 'jsonwebtoken';
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    await dbConnect();
-
-    const formData = await request.formData();
-    const files: Record<string, File> = {};
-    const data: any = {};
-
-    // Extract files and form data
-    for (const [key, value] of formData.entries()) {
-      if (value instanceof File) {
-        files[key] = value;
-      } else {
-        data[key] = value;
-      }
+    const token = req.headers.get('Authorization')?.replace('Bearer ', '');
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'غير مصرح لك بالوصول' },
+        { status: 401 }
+      );
     }
 
-    // Upload files to Cloudinary
-    const uploadPromises = Object.entries(files).map(async ([key, file]) => {
-      const url = await uploadFile(file, key);
-      data[key] = url;
-    });
+    // Verify token and get user ID
+    const decoded = verify(token, process.env.JWT_SECRET!) as { userId: string };
+    const userId = decoded.userId;
 
-    await Promise.all(uploadPromises);
-
-    // Parse experiences if present
-    if (data.experiences) {
-      try {
-        data.experiences = JSON.parse(data.experiences);
-      } catch (e) {
-        data.experiences = [];
-      }
-    }
+    const { job, personalInfo, experiences } = await req.json();
 
     // Create application
-    const application = new Application(data);
-    
-    // Calculate initial auto score
-    application.calculateAutoScore();
-    
-    await application.save();
+    const application = await prisma.application.create({
+      data: {
+        userId,
+        position: job.title,
+        status: 'pending',
+        licenseNumber: personalInfo.licenseNumber,
+        syndicateNumber: personalInfo.syndicateNumber,
+        licenseFile: personalInfo.licenseFile,
+        syndicateFile: personalInfo.syndicateFile,
+        graduationCertificate: personalInfo.graduationCertificate,
+        resume: personalInfo.resume,
+        birthDate: new Date(personalInfo.birthDate),
+        address: personalInfo.address,
+        experiences,
+      },
+    });
 
-    // Send confirmation email
-    await sendEmail(data.email, 'application_received');
-
-    return NextResponse.json({ success: true, applicationId: application._id });
-  } catch (error: any) {
+    return NextResponse.json(application);
+  } catch (error) {
     console.error('Application submission error:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        message: error.message || 'حدث خطأ أثناء تقديم الطلب'
-      },
-      { status: 400 }
+      { error: 'حدث خطأ أثناء إرسال الطلب' },
+      { status: 500 }
     );
   }
 }
 
-export async function GET(request: Request) {
+export async function GET(req: Request) {
   try {
-    await dbConnect();
-
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status');
-    const job = searchParams.get('job');
-    const search = searchParams.get('search');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
-
-    const query: any = {};
-    if (status) query.status = status;
-    if (job) query.selectedJob = job;
-    if (search) {
-      query.$or = [
-        { fullName: { $regex: search, $options: 'i' } },
-        { nationalId: { $regex: search, $options: 'i' } },
-      ];
+    const token = req.headers.get('Authorization')?.replace('Bearer ', '');
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'غير مصرح لك بالوصول' },
+        { status: 401 }
+      );
     }
 
-    const total = await Application.countDocuments(query);
-    const applications = await Application.find(query)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+    // Verify token and get user ID
+    const decoded = verify(token, process.env.JWT_SECRET!) as { userId: string };
+    const userId = decoded.userId;
 
-    return NextResponse.json({
-      success: true,
-      applications,
-      pagination: {
-        total,
-        pages: Math.ceil(total / limit),
-        page,
-        limit,
-      },
+    // Get user's applications
+    const applications = await prisma.application.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
     });
-  } catch (error: any) {
-    console.error('Application fetch error:', error);
+
+    return NextResponse.json(applications);
+  } catch (error) {
+    console.error('Get applications error:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        message: error.message || 'حدث خطأ أثناء جلب الطلبات'
-      },
+      { error: 'حدث خطأ أثناء جلب الطلبات' },
       { status: 500 }
     );
   }

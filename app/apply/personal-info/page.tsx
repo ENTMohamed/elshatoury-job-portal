@@ -2,10 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useFormik } from 'formik';
-import * as Yup from 'yup';
+import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
 import ProgressBar from '../../components/ProgressBar';
-import FileUpload from '../../components/FileUpload';
+import { CldUploadWidget } from 'next-cloudinary';
+import { DocumentIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import { toast } from 'react-hot-toast';
 
 const steps = [
@@ -47,337 +49,256 @@ const transportationMeans = [
   { id: 'none', title: 'لا توجد' },
 ];
 
-const validationSchema = Yup.object({
-  fullName: Yup.string()
-    .required('الاسم الكامل مطلوب')
-    .max(100, 'الاسم يجب أن لا يتجاوز 100 حرف'),
-  nationalId: Yup.string()
-    .required('الرقم القومي مطلوب')
-    .matches(/^[0-9]{14}$/, 'الرقم القومي يجب أن يتكون من 14 رقم'),
-  educationLevel: Yup.string().required('المؤهل التعليمي مطلوب'),
-  address: Yup.string().required('عنوان السكن مطلوب'),
-  transportation: Yup.string().required('وسيلة الحركة مطلوبة'),
+const schema = yup.object().shape({
+  fullName: yup.string().required('الاسم مطلوب'),
+  email: yup.string().email('البريد الإلكتروني غير صحيح').required('البريد الإلكتروني مطلوب'),
+  password: yup.string()
+    .min(8, 'كلمة المرور يجب أن تكون 8 أحرف على الأقل')
+    .required('كلمة المرور مطلوبة'),
+  phone: yup.string()
+    .matches(/^(01)[0-2,5]{1}[0-9]{8}$/, 'رقم الهاتف غير صحيح')
+    .required('رقم الهاتف مطلوب'),
+  address: yup.string().required('العنوان مطلوب'),
+  birthDate: yup.date()
+    .max(new Date(), 'تاريخ الميلاد يجب أن يكون في الماضي')
+    .required('تاريخ الميلاد مطلوب'),
+  resume: yup.string().required('السيرة الذاتية مطلوبة'),
 });
 
-interface FileState {
-  nationalIdFront: File | null;
-  nationalIdBack: File | null;
-  educationCertificate: File | null;
-  cv: File | null;
-  criminalRecord: File | null;
-}
-
 export default function PersonalInfoPage() {
-  const router = useRouter();
   const [selectedJob, setSelectedJob] = useState<any>(null);
-  const [files, setFiles] = useState<FileState>({
-    nationalIdFront: null,
-    nationalIdBack: null,
-    educationCertificate: null,
-    cv: null,
-    criminalRecord: null,
+  const [resumeUrl, setResumeUrl] = useState('');
+  const router = useRouter();
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    formState: { errors },
+  } = useForm({
+    resolver: yupResolver(schema),
   });
-  const [fileErrors, setFileErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const jobData = localStorage.getItem('selectedJob');
-    if (!jobData) {
+    const job = localStorage.getItem('selectedJob');
+    if (!job) {
       router.push('/apply');
-      return;
-    }
-
-    const job = JSON.parse(jobData);
-    setSelectedJob(job);
-
-    // If pharmacist, check for required files
-    if (job.id === 'pharmacist') {
-      const pharmacistFiles = localStorage.getItem('pharmacistFiles');
-      if (!pharmacistFiles) {
-        router.push('/apply/pharmacist-requirements');
-        return;
-      }
+    } else {
+      setSelectedJob(JSON.parse(job));
     }
   }, [router]);
 
-  const validateFiles = () => {
-    const errors: Record<string, string> = {};
-    
-    // Always required files
-    if (!files.nationalIdFront) {
-      errors.nationalIdFront = 'صورة وجه البطاقة مطلوبة';
-    }
-    if (!files.nationalIdBack) {
-      errors.nationalIdBack = 'صورة ظهر البطاقة مطلوبة';
-    }
-    if (!files.cv) {
-      errors.cv = 'السيرة الذاتية مطلوبة';
-    }
-    
-    // Education certificate is required if education level is not 'none'
-    if (formik.values.educationLevel !== 'none' && !files.educationCertificate) {
-      errors.educationCertificate = 'شهادة المؤهل مطلوبة';
-    }
+  const onSubmit = async (data: any) => {
+    try {
+      // Register user
+      const registerResponse = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password,
+          fullName: data.fullName,
+          phone: data.phone,
+        }),
+      });
 
-    setFileErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const formik = useFormik({
-    initialValues: {
-      fullName: '',
-      nationalId: '',
-      educationLevel: '',
-      address: '',
-      transportation: '',
-    },
-    validationSchema,
-    onSubmit: async (values) => {
-      // Validate files first
-      if (!validateFiles()) {
-        // Show error toast
-        toast.error('يرجى رفع جميع المستندات المطلوبة');
+      if (!registerResponse.ok) {
+        const error = await registerResponse.json();
+        toast.error(error.error || 'حدث خطأ أثناء إنشاء الحساب');
         return;
       }
 
-      // Get pharmacist files if applicable
-      let allFiles = { ...files };
-      if (selectedJob?.id === 'pharmacist') {
-        const pharmacistFiles = JSON.parse(localStorage.getItem('pharmacistFiles') || '{}');
-        allFiles = { ...allFiles, ...pharmacistFiles };
+      // Login user
+      const loginResponse = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password,
+        }),
+      });
+
+      if (!loginResponse.ok) {
+        toast.error('حدث خطأ أثناء تسجيل الدخول');
+        return;
       }
 
-      // Store form data and file metadata
-      const fileMetadata = Object.entries(allFiles).reduce((acc, [key, file]) => {
-        if (file instanceof File) {
-          acc[key] = {
-            name: file.name,
-            type: file.type,
-            size: file.size,
-            lastModified: file.lastModified
-          };
-        }
-        return acc;
-      }, {} as Record<string, { name: string; type: string; size: number; lastModified: number }>);
-
-      localStorage.setItem('personalInfo', JSON.stringify({
-        ...values,
-        files: fileMetadata
-      }));
-
-      // Store file data in sessionStorage
-      try {
-        const fileData = await Promise.all(
-          Object.entries(allFiles).map(async ([key, file]) => {
-            if (file instanceof File) {
-              const arrayBuffer = await file.arrayBuffer();
-              return [key, {
-                name: file.name,
-                type: file.type,
-                lastModified: file.lastModified,
-                data: Array.from(new Uint8Array(arrayBuffer))
-              }];
-            }
-            return [key, null];
-          })
-        );
-
-        const existingFiles = JSON.parse(sessionStorage.getItem('applicationFiles') || '{}');
-        sessionStorage.setItem('applicationFiles', JSON.stringify({
-          ...existingFiles,
-          ...Object.fromEntries(fileData)
-        }));
-
-        router.push('/apply/experience');
-      } catch (error) {
-        console.error('Error storing files:', error);
-        toast.error('حدث خطأ أثناء حفظ الملفات');
-      }
-    },
-  });
-
-  const handleFileChange = (field: string) => (file: File | null) => {
-    setFiles((prev) => ({ ...prev, [field]: file }));
-    // Clear error when file is uploaded
-    if (file) {
-      setFileErrors((prev) => ({ ...prev, [field]: '' }));
+      const { token } = await loginResponse.json();
+      localStorage.setItem('token', token);
+      localStorage.setItem('personalInfo', JSON.stringify(data));
+      router.push('/apply/experience');
+    } catch (error) {
+      console.error('Form submission error:', error);
+      toast.error('حدث خطأ أثناء إرسال البيانات');
     }
   };
 
-  if (!selectedJob) return null;
-
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 py-12">
       <div className="max-w-3xl mx-auto">
         <ProgressBar currentStep={2} totalSteps={5} steps={steps} />
 
-        <div className="mt-10 bg-white shadow-sm rounded-lg p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">البيانات الشخصية</h2>
+        <div className="mt-10 bg-white shadow-sm rounded-lg p-8">
+          <h2 className="text-2xl font-bold text-emerald-900 mb-6">البيانات الشخصية</h2>
 
-          <form onSubmit={formik.handleSubmit} className="space-y-6">
-            {/* Full Name */}
-            <div>
-              <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
-                الاسم الكامل
-              </label>
-              <input
-                type="text"
-                id="fullName"
-                {...formik.getFieldProps('fullName')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-              {formik.touched.fullName && formik.errors.fullName && (
-                <p className="mt-1 text-sm text-red-600">{formik.errors.fullName}</p>
-              )}
-            </div>
-
-            {/* National ID */}
-            <div>
-              <label htmlFor="nationalId" className="block text-sm font-medium text-gray-700">
-                الرقم القومي
-              </label>
-              <input
-                type="text"
-                id="nationalId"
-                {...formik.getFieldProps('nationalId')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-              {formik.touched.nationalId && formik.errors.nationalId && (
-                <p className="mt-1 text-sm text-red-600">{formik.errors.nationalId}</p>
-              )}
-            </div>
-
-            {/* National ID Files */}
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
-                <FileUpload
-                  label="صورة وجه البطاقة"
-                  name="nationalIdFront"
-                  accept=".jpg,.jpeg,.png"
-                  maxSize={2}
-                  onChange={handleFileChange('nationalIdFront')}
-                  required
-                  error={fileErrors.nationalIdFront}
+                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
+                  الاسم بالكامل
+                </label>
+                <input
+                  type="text"
+                  id="fullName"
+                  {...register('fullName')}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-emerald-500"
+                  dir="rtl"
                 />
+                {errors.fullName && (
+                  <p className="mt-1 text-sm text-red-600">{errors.fullName.message}</p>
+                )}
               </div>
+
               <div>
-                <FileUpload
-                  label="صورة ظهر البطاقة"
-                  name="nationalIdBack"
-                  accept=".jpg,.jpeg,.png"
-                  maxSize={2}
-                  onChange={handleFileChange('nationalIdBack')}
-                  required
-                  error={fileErrors.nationalIdBack}
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                  البريد الإلكتروني
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  {...register('email')}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-emerald-500"
+                  dir="ltr"
                 />
+                {errors.email && (
+                  <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+                )}
               </div>
-            </div>
 
-            {/* Education Level */}
-            <div>
-              <label htmlFor="educationLevel" className="block text-sm font-medium text-gray-700">
-                المؤهل التعليمي
-              </label>
-              <select
-                id="educationLevel"
-                {...formik.getFieldProps('educationLevel')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              >
-                <option value="">اختر المؤهل</option>
-                {educationLevels.map((level) => (
-                  <option key={level.id} value={level.id}>
-                    {level.title}
-                  </option>
-                ))}
-              </select>
-              {formik.touched.educationLevel && formik.errors.educationLevel && (
-                <p className="mt-1 text-sm text-red-600">{formik.errors.educationLevel}</p>
-              )}
-            </div>
-
-            {/* Education Certificate */}
-            {formik.values.educationLevel !== 'none' && (
               <div>
-                <FileUpload
-                  label="شهادة المؤهل"
-                  name="educationCertificate"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  maxSize={2}
-                  onChange={handleFileChange('educationCertificate')}
-                  required
-                  error={fileErrors.educationCertificate}
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                  كلمة المرور
+                </label>
+                <input
+                  type="password"
+                  id="password"
+                  {...register('password')}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-emerald-500"
+                  dir="ltr"
                 />
+                {errors.password && (
+                  <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
+                )}
               </div>
-            )}
 
-            {/* CV */}
-            <div>
-              <FileUpload
-                label="السيرة الذاتية"
-                name="cv"
-                accept=".pdf,.doc,.docx"
-                maxSize={5}
-                onChange={handleFileChange('cv')}
-                required
-                error={fileErrors.cv}
-              />
+              <div>
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                  رقم الهاتف
+                </label>
+                <input
+                  type="tel"
+                  id="phone"
+                  {...register('phone')}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-emerald-500"
+                  dir="ltr"
+                />
+                {errors.phone && (
+                  <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="birthDate" className="block text-sm font-medium text-gray-700">
+                  تاريخ الميلاد
+                </label>
+                <input
+                  type="date"
+                  id="birthDate"
+                  {...register('birthDate')}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-emerald-500"
+                />
+                {errors.birthDate && (
+                  <p className="mt-1 text-sm text-red-600">{errors.birthDate.message}</p>
+                )}
+              </div>
             </div>
 
-            {/* Criminal Record */}
-            <div>
-              <FileUpload
-                label="صحيفة الحالة الجنائية"
-                name="criminalRecord"
-                accept=".jpg,.jpeg,.png,.pdf"
-                maxSize={5}
-                onChange={handleFileChange('criminalRecord')}
-                required
-                error={fileErrors.criminalRecord}
-              />
-            </div>
-
-            {/* Address */}
             <div>
               <label htmlFor="address" className="block text-sm font-medium text-gray-700">
-                عنوان السكن
+                العنوان
               </label>
-              <input
-                type="text"
+              <textarea
                 id="address"
-                {...formik.getFieldProps('address')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                {...register('address')}
+                rows={3}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-emerald-500"
+                dir="rtl"
               />
-              {formik.touched.address && formik.errors.address && (
-                <p className="mt-1 text-sm text-red-600">{formik.errors.address}</p>
+              {errors.address && (
+                <p className="mt-1 text-sm text-red-600">{errors.address.message}</p>
               )}
             </div>
 
-            {/* Transportation */}
             <div>
-              <label htmlFor="transportation" className="block text-sm font-medium text-gray-700">
-                وسيلة الحركة
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                السيرة الذاتية
               </label>
-              <select
-                id="transportation"
-                {...formik.getFieldProps('transportation')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              <CldUploadWidget
+                uploadPreset="job_applications"
+                onSuccess={(result: any) => {
+                  setResumeUrl(result.info.secure_url);
+                  setValue('resume', result.info.secure_url);
+                }}
               >
-                <option value="">اختر وسيلة الحركة</option>
-                {transportationMeans.map((means) => (
-                  <option key={means.id} value={means.id}>
-                    {means.title}
-                  </option>
-                ))}
-              </select>
-              {formik.touched.transportation && formik.errors.transportation && (
-                <p className="mt-1 text-sm text-red-600">{formik.errors.transportation}</p>
+                {({ open }) => (
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => open()}
+                      className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+                    >
+                      <DocumentIcon className="h-5 w-5 ml-2 text-gray-500" />
+                      رفع السيرة الذاتية
+                    </button>
+                    {resumeUrl && (
+                      <div className="flex items-center space-x-2 space-x-reverse bg-emerald-50 p-2 rounded-md">
+                        <DocumentIcon className="h-5 w-5 text-emerald-500" />
+                        <span className="text-sm text-emerald-700">تم رفع السيرة الذاتية</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setResumeUrl('');
+                            setValue('resume', '');
+                          }}
+                          className="text-emerald-600 hover:text-emerald-800"
+                        >
+                          <XMarkIcon className="h-5 w-5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CldUploadWidget>
+              {errors.resume && (
+                <p className="mt-1 text-sm text-red-600">{errors.resume.message}</p>
               )}
             </div>
 
-            {/* Submit Button */}
-            <div>
+            <div className="flex justify-between items-center pt-4">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="btn-secondary"
+              >
+                رجوع
+              </button>
               <button
                 type="submit"
-                className="w-full bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="btn-primary"
               >
                 متابعة
               </button>

@@ -5,22 +5,37 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("POSTGRES_URL")
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String        @id @default(cuid())
+  email         String        @unique
+  password      String
+  fullName      String
+  phone         String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  applications  Application[]
 }
 
 model Application {
-  id          String   @id @default(cuid())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  name        String
-  email       String
-  phone       String
-  position    String
-  experience  String
-  education   String
-  resumeUrl   String?
-  status      String   @default("pending")
-  notes       String?
+  id                    String   @id @default(cuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id])
+  position              String
+  status               String   @default("pending")
+  licenseNumber        String?
+  syndicateNumber      String?
+  licenseFile          String?
+  syndicateFile        String?
+  graduationCertificate String?
+  resume               String
+  birthDate            DateTime
+  address              String
+  experiences          Json[]
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
 
 model Admin {

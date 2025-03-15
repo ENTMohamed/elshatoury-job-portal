@@ -1,37 +1,53 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { verify } from 'jsonwebtoken';
 
 export async function middleware(request: NextRequest) {
-  // Only run middleware on admin routes
-  if (!request.nextUrl.pathname.startsWith('/admin')) {
+  const token = request.headers.get('Authorization')?.replace('Bearer ', '');
+
+  // Public paths that don't require authentication
+  const publicPaths = [
+    '/api/auth/login',
+    '/api/auth/register',
+    '/',
+    '/apply',
+    '/apply/success',
+  ];
+
+  const isPublicPath = publicPaths.some(path => 
+    request.nextUrl.pathname.startsWith(path)
+  );
+
+  if (isPublicPath) {
     return NextResponse.next();
   }
-
-  // Skip middleware for login page and API routes
-  if (request.nextUrl.pathname === '/admin/login' || request.nextUrl.pathname.startsWith('/api/')) {
-    return NextResponse.next();
-  }
-
-  const token = request.cookies.get('adminToken');
 
   if (!token) {
-    return NextResponse.redirect(new URL('/admin/login', request.url));
+    return NextResponse.json(
+      { error: 'غير مصرح لك بالوصول' },
+      { status: 401 }
+    );
   }
 
-  // Let the API handle token verification
-  const verifyResponse = await fetch(new URL('/api/auth/verify', request.url), {
-    headers: {
-      Cookie: `adminToken=${token.value}`
-    }
-  });
-
-  if (!verifyResponse.ok) {
-    return NextResponse.redirect(new URL('/admin/login', request.url));
+  try {
+    const decoded = verify(token, process.env.JWT_SECRET!);
+    const response = NextResponse.next();
+    response.headers.set('X-User-ID', (decoded as any).userId);
+    return response;
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'غير مصرح لك بالوصول' },
+      { status: 401 }
+    );
   }
-
-  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/admin/:path*']
+  matcher: [
+    '/api/applications/:path*',
+    '/apply/personal-info/:path*',
+    '/apply/experience/:path*',
+    '/apply/review/:path*',
+    '/apply/pharmacist-requirements/:path*',
+  ],
 }; 

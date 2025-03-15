@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useFormik } from 'formik'
 import * as Yup from 'yup'
 import toast from 'react-hot-toast'
+import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 
 const validationSchema = Yup.object({
   name: Yup.string().required('Name is required'),
@@ -29,7 +31,42 @@ const validationSchema = Yup.object({
     }),
 })
 
-export default function JobApplication() {
+const jobs = [
+  {
+    id: 'pharmacist',
+    title: 'صيدلي',
+    description: 'نبحث عن صيادلة ذوي خبرة للعمل في فروعنا المختلفة',
+    requirements: [
+      'بكالوريوس صيدلة',
+      'خبرة لا تقل عن سنة',
+      'مهارات تواصل ممتازة',
+      'القدرة على العمل بنظام الورديات',
+    ],
+  },
+  {
+    id: 'pharmacy-technician',
+    title: 'فني صيدلي',
+    description: 'مطلوب فنيين صيدلة للعمل في فروعنا',
+    requirements: [
+      'دبلوم فني صيدلة',
+      'خبرة في مجال الصيدليات',
+      'مهارات خدمة عملاء جيدة',
+    ],
+  },
+  {
+    id: 'sales-representative',
+    title: 'مندوب مبيعات',
+    description: 'نبحث عن مندوبين مبيعات نشيطين',
+    requirements: [
+      'مؤهل عالي',
+      'خبرة في المبيعات',
+      'رخصة قيادة سارية',
+    ],
+  },
+]
+
+export default function HomePage() {
+  const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const formik = useFormik({
@@ -71,159 +108,93 @@ export default function JobApplication() {
   })
 
   return (
-    <div className="max-w-2xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">
-          التقديم للوظائف
-        </h1>
-        <p className="mt-2 text-lg text-gray-600">
-          انضم إلى فريقنا وكن جزءاً من نجاحنا
-        </p>
-        <div className="mt-4 text-sm text-gray-500">
-          <p>العنوان: ٩ شارع واحد الجامعة القديمة الاسماعيلية</p>
-          <p>رقم الهاتف: 01501504746</p>
+    <div className="py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-emerald-900 mb-4">
+            انضم إلى فريق صيدليات الشاطوري
+          </h1>
+          <p className="text-xl text-emerald-700 mb-8">
+            نحن نبحث عن مواهب متميزة للانضمام إلى فريقنا المتنامي
+          </p>
         </div>
-      </div>
 
-      <div className="bg-white shadow sm:rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
-          <form onSubmit={formik.handleSubmit} className="space-y-6">
-            <div>
-              <label
-                htmlFor="name"
-                className="block text-sm font-medium text-gray-700"
+        <div className="mt-16">
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+            {jobs.map((job) => (
+              <div
+                key={job.id}
+                className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow"
               >
-                Full Name
-              </label>
-              <div className="mt-1">
-                <input
-                  id="name"
-                  type="text"
-                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                  {...formik.getFieldProps('name')}
-                />
-              </div>
-              {formik.touched.name && formik.errors.name && (
-                <p className="mt-2 text-sm text-red-600">
-                  {formik.errors.name}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Email
-              </label>
-              <div className="mt-1">
-                <input
-                  id="email"
-                  type="email"
-                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                  {...formik.getFieldProps('email')}
-                />
-              </div>
-              {formik.touched.email && formik.errors.email && (
-                <p className="mt-2 text-sm text-red-600">
-                  {formik.errors.email}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label
-                htmlFor="phone"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Phone Number
-              </label>
-              <div className="mt-1">
-                <input
-                  id="phone"
-                  type="tel"
-                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                  {...formik.getFieldProps('phone')}
-                />
-              </div>
-              {formik.touched.phone && formik.errors.phone && (
-                <p className="mt-2 text-sm text-red-600">
-                  {formik.errors.phone}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label
-                htmlFor="position"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Position
-              </label>
-              <div className="mt-1">
-                <select
-                  id="position"
-                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                  {...formik.getFieldProps('position')}
-                >
-                  <option value="">Select a position</option>
-                  <option value="pharmacist">Pharmacist</option>
-                  <option value="pharmacy-technician">
-                    Pharmacy Technician
-                  </option>
-                  <option value="sales-representative">
-                    Sales Representative
-                  </option>
-                  <option value="store-manager">Store Manager</option>
-                </select>
-              </div>
-              {formik.touched.position && formik.errors.position && (
-                <p className="mt-2 text-sm text-red-600">
-                  {formik.errors.position}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label
-                htmlFor="resume"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Resume
-              </label>
-              <div className="mt-1">
-                <input
-                  id="resume"
-                  type="file"
-                  accept=".pdf,.doc,.docx"
-                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                  onChange={(event) => {
-                    const file = event.currentTarget.files?.[0]
-                    formik.setFieldValue('resume', file || null)
+                <h3 className="text-2xl font-bold text-emerald-800 mb-4">
+                  {job.title}
+                </h3>
+                <p className="text-gray-600 mb-4">{job.description}</p>
+                <div className="mb-6">
+                  <h4 className="font-semibold text-emerald-700 mb-2">المتطلبات:</h4>
+                  <ul className="list-disc list-inside text-gray-600 space-y-1">
+                    {job.requirements.map((req, index) => (
+                      <li key={index}>{req}</li>
+                    ))}
+                  </ul>
+                </div>
+                <button
+                  onClick={() => {
+                    localStorage.setItem('selectedJob', JSON.stringify(job))
+                    router.push('/apply')
                   }}
-                />
+                  className="btn-primary w-full"
+                >
+                  تقدم الآن
+                </button>
               </div>
-              {formik.touched.resume && formik.errors.resume && (
-                <p className="mt-2 text-sm text-red-600">
-                  {formik.errors.resume}
-                </p>
-              )}
-              <p className="mt-2 text-sm text-gray-500">
-                Accepted formats: PDF, DOC, DOCX (max 5MB)
-              </p>
-            </div>
+            ))}
+          </div>
+        </div>
 
-            <div>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? 'Submitting...' : 'Submit Application'}
-              </button>
+        <div className="mt-16 bg-emerald-50 rounded-lg p-8">
+          <div className="max-w-3xl mx-auto text-center">
+            <h2 className="text-2xl font-bold text-emerald-900 mb-4">
+              لماذا تنضم إلى صيدليات الشاطوري؟
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+              <div className="p-4">
+                <div className="text-emerald-700 text-xl font-bold mb-2">
+                  بيئة عمل محفزة
+                </div>
+                <p className="text-gray-600">
+                  نوفر بيئة عمل إيجابية تدعم التطور المهني
+                </p>
+              </div>
+              <div className="p-4">
+                <div className="text-emerald-700 text-xl font-bold mb-2">
+                  فرص للتطور
+                </div>
+                <p className="text-gray-600">
+                  نقدم برامج تدريبية وفرص للترقي الوظيفي
+                </p>
+              </div>
+              <div className="p-4">
+                <div className="text-emerald-700 text-xl font-bold mb-2">
+                  مزايا تنافسية
+                </div>
+                <p className="text-gray-600">
+                  نقدم حزمة مزايا متكاملة لموظفينا
+                </p>
+              </div>
             </div>
-          </form>
+          </div>
+        </div>
+
+        <div className="mt-16 text-center">
+          <h2 className="text-2xl font-bold text-emerald-900 mb-4">
+            تواصل معنا
+          </h2>
+          <div className="text-gray-600">
+            <p>العنوان: ٩ شارع واحد الجامعة القديمة الاسماعيلية</p>
+            <p>رقم الهاتف: 01501504746</p>
+            <p>البريد الإلكتروني: careers@elshatoury.com</p>
+          </div>
         </div>
       </div>
     </div>

@@ -6,10 +6,17 @@
   "framework": "nextjs",
   "regions": ["fra1"],
   "env": {
-    "POSTGRES_URL": "POSTGRES_URL",
-    "JWT_SECRET": "JWT_SECRET",
-    "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME": "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME",
-    "CLOUDINARY_API_KEY": "CLOUDINARY_API_KEY",
-    "CLOUDINARY_API_SECRET": "CLOUDINARY_API_SECRET"
+    "POSTGRES_URL": "@postgres_url",
+    "DATABASE_URL": "@database_url",
+    "JWT_SECRET": "@jwt_secret",
+    "JWT_EXPIRES_IN": "@jwt_expires_in",
+    "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME": "@cloudinary_cloud_name",
+    "CLOUDINARY_API_KEY": "@cloudinary_api_key",
+    "CLOUDINARY_API_SECRET": "@cloudinary_api_secret",
+    "SENDGRID_API_KEY": "@sendgrid_api_key",
+    "EMAIL_FROM": "@email_from",
+    "EMAIL_FROM_NAME": "@email_from_name",
+    "ADMIN_EMAIL": "@admin_email",
+    "ADMIN_PASSWORD": "@admin_password"
   }
 } 

@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useFormik, FieldArray, FormikProvider } from 'formik';
-import * as Yup from 'yup';
+import { useForm, useFieldArray } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
 import ProgressBar from '../../components/ProgressBar';
-import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
-import { toast } from 'react-hot-toast';
+import { PlusIcon, TrashIcon } from '@heroicons/react/24/solid';
 
 const steps = [
   {
@@ -31,351 +31,182 @@ const steps = [
   },
 ];
 
-interface Experience {
-  pharmacyName: string;
-  managerPhone: string;
-  startDate: string;
-  endDate: string;
-  leavingReason: string;
-  averageSales: string;
-}
-
-interface FormValues {
-  experiences: Experience[];
-}
-
-const experienceValidationSchema = Yup.object({
-  experiences: Yup.array().of(
-    Yup.object({
-      pharmacyName: Yup.string().required('اسم الصيدلية مطلوب'),
-      managerPhone: Yup.string()
-        .required('رقم هاتف المدير مطلوب')
-        .matches(/^01[0-9]{9}$/, 'رقم الهاتف يجب أن يبدأ بـ 01 ويتكون من 11 رقم'),
-      startDate: Yup.date().required('تاريخ بدء العمل مطلوب'),
-      endDate: Yup.date()
-        .required('تاريخ ترك العمل مطلوب')
-        .min(Yup.ref('startDate'), 'تاريخ ترك العمل يجب أن يكون بعد تاريخ البدء'),
-      leavingReason: Yup.string().required('سبب ترك العمل مطلوب'),
-      averageSales: Yup.number()
-        .required('متوسط المبيعات مطلوب')
-        .positive('يجب أن يكون رقم موجب')
-        .max(1000000, 'يجب أن لا يتجاوز مليون جنيه'),
+const schema = yup.object().shape({
+  experiences: yup.array().of(
+    yup.object().shape({
+      company: yup.string().required('اسم الشركة مطلوب'),
+      position: yup.string().required('المسمى الوظيفي مطلوب'),
+      startDate: yup.string().required('تاريخ البدء مطلوب'),
+      endDate: yup.string()
+        .required('تاريخ الانتهاء مطلوب')
+        .test('is-after-start', 'تاريخ الانتهاء يجب أن يكون بعد تاريخ البدء', function(value) {
+          const { startDate } = this.parent;
+          if (!startDate || !value) return true;
+          return new Date(value) > new Date(startDate);
+        }),
+      responsibilities: yup.string().required('المسؤوليات مطلوبة'),
     })
-  ),
+  ).min(1, 'يجب إضافة خبرة واحدة على الأقل'),
 });
 
 export default function ExperiencePage() {
-  const router = useRouter();
   const [selectedJob, setSelectedJob] = useState<any>(null);
-  const [currentStep, setCurrentStep] = useState(3);
+  const router = useRouter();
 
-  useEffect(() => {
-    const jobData = localStorage.getItem('selectedJob');
-    const personalInfo = localStorage.getItem('personalInfo');
-
-    if (!jobData || !personalInfo) {
-      router.push('/apply');
-      return;
-    }
-
-    const job = JSON.parse(jobData);
-    setSelectedJob(job);
-
-    // Set correct step based on job type
-    if (job.id === 'pharmacist') {
-      setCurrentStep(3);
-    } else {
-      setCurrentStep(2);
-    }
-  }, [router]);
-
-  const formik = useFormik<FormValues>({
-    initialValues: {
-      experiences: [
-        {
-          pharmacyName: '',
-          managerPhone: '',
-          startDate: '',
-          endDate: '',
-          leavingReason: '',
-          averageSales: '',
-        },
-      ],
-    },
-    validationSchema: experienceValidationSchema,
-    onSubmit: async (values) => {
-      try {
-        // Store experiences in localStorage
-        localStorage.setItem('experiences', JSON.stringify(values));
-        
-        // Show success message
-        toast.success('تم حفظ الخبرات بنجاح');
-        
-        // Navigate to review page
-        router.push('/apply/review');
-      } catch (error) {
-        console.error('Error saving experiences:', error);
-        toast.error('حدث خطأ أثناء حفظ الخبرات');
-      }
+  const {
+    register,
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({
+    resolver: yupResolver(schema),
+    defaultValues: {
+      experiences: [{ company: '', position: '', startDate: '', endDate: '', responsibilities: '' }],
     },
   });
 
-  const getFieldError = (index: number, field: keyof Experience) => {
-    const errors = formik.errors.experiences?.[index];
-    if (typeof errors === 'object' && errors !== null) {
-      return errors[field];
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: 'experiences',
+  });
+
+  useEffect(() => {
+    const job = localStorage.getItem('selectedJob');
+    if (!job) {
+      router.push('/apply');
+    } else {
+      setSelectedJob(JSON.parse(job));
     }
-    return '';
-  };
+  }, [router]);
 
-  const getFieldTouched = (index: number, field: keyof Experience) => {
-    return formik.touched.experiences?.[index]?.[field] || false;
-  };
-
-  const calculateDuration = (startDate: string, endDate: string) => {
-    if (!startDate || !endDate) return '';
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return `${diffDays} يوم`;
+  const onSubmit = async (data: any) => {
+    localStorage.setItem('experiences', JSON.stringify(data));
+    router.push('/apply/review');
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 py-12">
       <div className="max-w-3xl mx-auto">
-        <ProgressBar currentStep={currentStep} totalSteps={5} steps={steps} />
+        <ProgressBar currentStep={3} totalSteps={5} steps={steps} />
 
-        <div className="mt-10 bg-white shadow-sm rounded-lg p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">الخبرات السابقة</h2>
+        <div className="mt-10 bg-white shadow-sm rounded-lg p-8">
+          <h2 className="text-2xl font-bold text-emerald-900 mb-6">الخبرات السابقة</h2>
 
-          <FormikProvider value={formik}>
-            <form onSubmit={formik.handleSubmit} className="space-y-6">
-              <FieldArray
-                name="experiences"
-                render={(arrayHelpers) => (
-                  <div className="space-y-6">
-                    {formik.values.experiences.map((experience, index) => (
-                      <div key={index} className="border rounded-lg p-4 space-y-4">
-                        <div className="flex justify-between items-center">
-                          <h3 className="text-lg font-medium text-gray-900">
-                            خبرة {index + 1}
-                          </h3>
-                          {index > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => arrayHelpers.remove(index)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <TrashIcon className="h-5 w-5" />
-                            </button>
-                          )}
-                        </div>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+            {fields.map((field, index) => (
+              <div key={field.id} className="space-y-6 p-6 bg-gray-50 rounded-lg relative">
+                {index > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => remove(index)}
+                    className="absolute top-4 left-4 text-red-600 hover:text-red-800"
+                  >
+                    <TrashIcon className="h-5 w-5" />
+                  </button>
+                )}
 
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                          {/* Pharmacy Name */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700">
-                              اسم الصيدلية
-                            </label>
-                            <input
-                              type="text"
-                              id={`experiences.${index}.pharmacyName`}
-                              name={`experiences.${index}.pharmacyName`}
-                              onChange={formik.handleChange}
-                              onBlur={formik.handleBlur}
-                              value={experience.pharmacyName}
-                              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
-                                getFieldError(index, 'pharmacyName') && getFieldTouched(index, 'pharmacyName')
-                                  ? 'border-red-500'
-                                  : ''
-                              }`}
-                            />
-                            {getFieldError(index, 'pharmacyName') && getFieldTouched(index, 'pharmacyName') && (
-                              <p className="mt-1 text-sm text-red-600">
-                                {getFieldError(index, 'pharmacyName')}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Manager Phone */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700">
-                              رقم هاتف المدير
-                            </label>
-                            <input
-                              type="text"
-                              id={`experiences.${index}.managerPhone`}
-                              name={`experiences.${index}.managerPhone`}
-                              onChange={formik.handleChange}
-                              onBlur={formik.handleBlur}
-                              value={experience.managerPhone}
-                              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
-                                getFieldError(index, 'managerPhone') && getFieldTouched(index, 'managerPhone')
-                                  ? 'border-red-500'
-                                  : ''
-                              }`}
-                            />
-                            {getFieldError(index, 'managerPhone') && getFieldTouched(index, 'managerPhone') && (
-                              <p className="mt-1 text-sm text-red-600">
-                                {getFieldError(index, 'managerPhone')}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Start Date */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700">
-                              تاريخ بدء العمل
-                            </label>
-                            <input
-                              type="date"
-                              id={`experiences.${index}.startDate`}
-                              name={`experiences.${index}.startDate`}
-                              onChange={formik.handleChange}
-                              onBlur={formik.handleBlur}
-                              value={experience.startDate}
-                              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
-                                getFieldError(index, 'startDate') && getFieldTouched(index, 'startDate')
-                                  ? 'border-red-500'
-                                  : ''
-                              }`}
-                            />
-                            {getFieldError(index, 'startDate') && getFieldTouched(index, 'startDate') && (
-                              <p className="mt-1 text-sm text-red-600">
-                                {getFieldError(index, 'startDate')}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* End Date */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700">
-                              تاريخ ترك العمل
-                            </label>
-                            <input
-                              type="date"
-                              id={`experiences.${index}.endDate`}
-                              name={`experiences.${index}.endDate`}
-                              onChange={formik.handleChange}
-                              onBlur={formik.handleBlur}
-                              value={experience.endDate}
-                              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
-                                getFieldError(index, 'endDate') && getFieldTouched(index, 'endDate')
-                                  ? 'border-red-500'
-                                  : ''
-                              }`}
-                            />
-                            {getFieldError(index, 'endDate') && getFieldTouched(index, 'endDate') && (
-                              <p className="mt-1 text-sm text-red-600">
-                                {getFieldError(index, 'endDate')}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Duration */}
-                          {experience.startDate && experience.endDate && (
-                            <div className="col-span-2">
-                              <p className="text-sm text-gray-500">
-                                مدة العمل:{' '}
-                                {calculateDuration(experience.startDate, experience.endDate)}
-                              </p>
-                            </div>
-                          )}
-
-                          {/* Leaving Reason */}
-                          <div className="col-span-2">
-                            <label className="block text-sm font-medium text-gray-700">
-                              سبب ترك العمل
-                            </label>
-                            <textarea
-                              id={`experiences.${index}.leavingReason`}
-                              name={`experiences.${index}.leavingReason`}
-                              onChange={formik.handleChange}
-                              onBlur={formik.handleBlur}
-                              value={experience.leavingReason}
-                              rows={3}
-                              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
-                                getFieldError(index, 'leavingReason') && getFieldTouched(index, 'leavingReason')
-                                  ? 'border-red-500'
-                                  : ''
-                              }`}
-                            />
-                            {getFieldError(index, 'leavingReason') && getFieldTouched(index, 'leavingReason') && (
-                              <p className="mt-1 text-sm text-red-600">
-                                {getFieldError(index, 'leavingReason')}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Average Sales */}
-                          <div className="col-span-2">
-                            <label className="block text-sm font-medium text-gray-700">
-                              متوسط مبيعات الوردية
-                            </label>
-                            <input
-                              type="number"
-                              id={`experiences.${index}.averageSales`}
-                              name={`experiences.${index}.averageSales`}
-                              onChange={formik.handleChange}
-                              onBlur={formik.handleBlur}
-                              value={experience.averageSales}
-                              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
-                                getFieldError(index, 'averageSales') && getFieldTouched(index, 'averageSales')
-                                  ? 'border-red-500'
-                                  : ''
-                              }`}
-                            />
-                            {getFieldError(index, 'averageSales') && getFieldTouched(index, 'averageSales') && (
-                              <p className="mt-1 text-sm text-red-600">
-                                {getFieldError(index, 'averageSales')}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-
-                    {formik.values.experiences.length < 10 && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          arrayHelpers.push({
-                            pharmacyName: '',
-                            managerPhone: '',
-                            startDate: '',
-                            endDate: '',
-                            leavingReason: '',
-                            averageSales: '',
-                          })
-                        }
-                        className="flex items-center justify-center w-full py-2 px-4 border-2 border-dashed border-gray-300 rounded-md text-sm font-medium text-gray-600 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      >
-                        <PlusIcon className="h-5 w-5 ml-2" />
-                        إضافة خبرة جديدة
-                      </button>
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      اسم الشركة
+                    </label>
+                    <input
+                      type="text"
+                      {...register(`experiences.${index}.company`)}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-emerald-500"
+                      dir="rtl"
+                    />
+                    {errors.experiences?.[index]?.company && (
+                      <p className="mt-1 text-sm text-red-600">{errors.experiences[index]?.company?.message}</p>
                     )}
                   </div>
-                )}
-              />
 
-              <div className="flex justify-between">
-                <button
-                  type="button"
-                  onClick={() => router.back()}
-                  className="bg-gray-100 text-gray-800 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                >
-                  رجوع
-                </button>
-                <button
-                  type="submit"
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  متابعة
-                </button>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      المسمى الوظيفي
+                    </label>
+                    <input
+                      type="text"
+                      {...register(`experiences.${index}.position`)}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-emerald-500"
+                      dir="rtl"
+                    />
+                    {errors.experiences?.[index]?.position && (
+                      <p className="mt-1 text-sm text-red-600">{errors.experiences[index]?.position?.message}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      تاريخ البدء
+                    </label>
+                    <input
+                      type="date"
+                      {...register(`experiences.${index}.startDate`)}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-emerald-500"
+                    />
+                    {errors.experiences?.[index]?.startDate && (
+                      <p className="mt-1 text-sm text-red-600">{errors.experiences[index]?.startDate?.message}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      تاريخ الانتهاء
+                    </label>
+                    <input
+                      type="date"
+                      {...register(`experiences.${index}.endDate`)}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-emerald-500"
+                    />
+                    {errors.experiences?.[index]?.endDate && (
+                      <p className="mt-1 text-sm text-red-600">{errors.experiences[index]?.endDate?.message}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    المسؤوليات والإنجازات
+                  </label>
+                  <textarea
+                    {...register(`experiences.${index}.responsibilities`)}
+                    rows={3}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-emerald-500"
+                    dir="rtl"
+                  />
+                  {errors.experiences?.[index]?.responsibilities && (
+                    <p className="mt-1 text-sm text-red-600">{errors.experiences[index]?.responsibilities?.message}</p>
+                  )}
+                </div>
               </div>
-            </form>
-          </FormikProvider>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => append({ company: '', position: '', startDate: '', endDate: '', responsibilities: '' })}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+            >
+              <PlusIcon className="h-5 w-5 ml-2 text-gray-500" />
+              إضافة خبرة جديدة
+            </button>
+
+            <div className="flex justify-between items-center pt-4">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="btn-secondary"
+              >
+                رجوع
+              </button>
+              <button
+                type="submit"
+                className="btn-primary"
+              >
+                متابعة
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>

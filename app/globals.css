@@ -3,10 +3,11 @@
 @tailwind utilities;
 
 :root {
-  --primary: #1e40af;
-  --primary-light: #3b82f6;
+  --primary: #065f46;
+  --primary-light: #059669;
   --primary-dark: #1e3a8a;
-  --secondary: #f3f4f6;
+  --secondary: #0369a1;
+  --secondary-light: #0ea5e9;
   --accent: #059669;
   --accent-light: #10b981;
   --accent-dark: #047857;
@@ -18,7 +19,19 @@
   --warning: #d97706;
 }
 
+body {
+  font-family: var(--font-cairo), system-ui, -apple-system, sans-serif;
+}
+
 @layer base {
+  html {
+    direction: rtl;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-emerald-900 font-bold;
+  }
+
   body {
     @apply bg-gray-50 text-gray-900;
   }
@@ -26,11 +39,23 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500;
+    @apply inline-flex justify-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary-sm {
+    @apply inline-flex justify-center rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2;
   }
 
   .btn-secondary {
-    @apply bg-gray-100 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500;
+    @apply inline-flex justify-center rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2;
+  }
+
+  .btn-secondary-sm {
+    @apply inline-flex justify-center rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2;
+  }
+
+  .input-primary {
+    @apply block w-full rounded-lg border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500;
   }
 
   .input-field {
@@ -41,7 +66,11 @@
     @apply block text-sm font-medium text-gray-700 mb-1;
   }
 
-  .error-text {
+  .form-label {
+    @apply block text-sm font-medium text-gray-700 mb-1;
+  }
+
+  .form-error {
     @apply mt-1 text-sm text-red-600;
   }
 
@@ -50,7 +79,7 @@
   }
 
   .card {
-    @apply bg-white shadow-sm rounded-lg p-6;
+    @apply bg-white rounded-lg shadow-sm border border-gray-100 p-6;
   }
 
   .section-title {
@@ -60,4 +89,23 @@
   .form-group {
     @apply space-y-1 mb-4;
   }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #065f46;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #059669;
 } 

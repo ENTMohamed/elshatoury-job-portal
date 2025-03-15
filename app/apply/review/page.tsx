@@ -1,15 +1,19 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProgressBar from '../../components/ProgressBar';
-import { DocumentIcon } from '@heroicons/react/24/outline';
-import toast from 'react-hot-toast';
+import { DocumentIcon } from '@heroicons/react/24/solid';
+import { toast } from 'react-hot-toast';
 
 const steps = [
   {
     title: 'اختيار الوظيفة',
     description: 'حدد الوظيفة التي تريد التقدم لها',
+  },
+  {
+    title: 'متطلبات إضافية',
+    description: 'أدخل المتطلبات الإضافية للوظيفة',
   },
   {
     title: 'البيانات الشخصية',
@@ -26,289 +30,177 @@ const steps = [
 ];
 
 export default function ReviewPage() {
+  const [selectedJob, setSelectedJob] = useState<any>(null);
+  const [personalInfo, setPersonalInfo] = useState<any>(null);
+  const [experiences, setExperiences] = useState<any>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
-  const [formData, setFormData] = useState<any>({
-    job: null,
-    personalInfo: null,
-    experiences: null,
-  });
-  const [submitting, setSubmitting] = useState(false);
-  const [currentStep, setCurrentStep] = useState(4);
 
   useEffect(() => {
     const job = localStorage.getItem('selectedJob');
-    const personalInfo = localStorage.getItem('personalInfo');
-    const experiences = localStorage.getItem('experiences');
+    const info = localStorage.getItem('personalInfo');
+    const exp = localStorage.getItem('experiences');
 
-    if (!job || !personalInfo || !experiences) {
+    if (!job || !info || !exp) {
       router.push('/apply');
       return;
     }
 
-    const jobData = JSON.parse(job);
-    setFormData({
-      job: jobData,
-      personalInfo: JSON.parse(personalInfo),
-      experiences: JSON.parse(experiences),
-    });
-
-    // Set correct step based on job type
-    if (jobData.id === 'pharmacist') {
-      setCurrentStep(4);
-    } else {
-      setCurrentStep(3);
-    }
+    setSelectedJob(JSON.parse(job));
+    setPersonalInfo(JSON.parse(info));
+    setExperiences(JSON.parse(exp));
   }, [router]);
 
-  const handleEdit = (section: string) => {
-    switch (section) {
-      case 'job':
-        router.push('/apply');
-        break;
-      case 'personal':
-        router.push('/apply/personal-info');
-        break;
-      case 'experience':
-        router.push('/apply/experience');
-        break;
-    }
-  };
-
   const handleSubmit = async () => {
-    if (submitting) return;
-
     try {
-      setSubmitting(true);
-      const loadingToast = toast.loading('جاري تقديم الطلب...');
+      setIsSubmitting(true);
 
-      // Create FormData object
-      const submitFormData = new FormData();
-
-      // Add basic form data
-      submitFormData.append('fullName', formData.personalInfo.fullName);
-      submitFormData.append('nationalId', formData.personalInfo.nationalId);
-      submitFormData.append('educationLevel', formData.personalInfo.educationLevel);
-      submitFormData.append('address', formData.personalInfo.address);
-      submitFormData.append('transportation', formData.personalInfo.transportation);
-      submitFormData.append('selectedJob', formData.job.id);
-      
-      // Get files from sessionStorage
-      const storedFiles = JSON.parse(sessionStorage.getItem('applicationFiles') || '{}');
-      
-      // Add files
-      for (const [key, fileData] of Object.entries(storedFiles)) {
-        const typedFileData = fileData as { data: number[]; type: string; name: string; lastModified?: number };
-        if (typedFileData && Array.isArray(typedFileData.data)) {
-          try {
-            // Reconstruct the file from stored data
-            const uint8Array = new Uint8Array(typedFileData.data);
-            const blob = new Blob([uint8Array], { type: typedFileData.type });
-            const file = new File([blob], typedFileData.name, {
-              type: typedFileData.type,
-              lastModified: typedFileData.lastModified || Date.now()
-            });
-            submitFormData.append(key, file);
-          } catch (error) {
-            console.error(`Error processing file ${key}:`, error);
-            toast.dismiss(loadingToast);
-            toast.error('حدث خطأ في معالجة الملفات');
-            return;
-          }
-        }
-      }
-
-      // Add experiences
-      if (formData.experiences && formData.experiences.experiences.length > 0) {
-        submitFormData.append('experiences', JSON.stringify(formData.experiences.experiences));
-      }
-
-      // Submit to backend
       const response = await fetch('/api/applications', {
         method: 'POST',
-        body: submitFormData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          job: selectedJob,
+          personalInfo,
+          experiences: experiences.experiences,
+        }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'حدث خطأ أثناء تقديم الطلب');
+        throw new Error('حدث خطأ أثناء إرسال الطلب');
       }
 
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.message || 'حدث خطأ أثناء تقديم الطلب');
-      }
-
-      // Show success message
-      toast.dismiss(loadingToast);
-      toast.success('تم تقديم طلبك بنجاح! سنتواصل معك قريباً');
-      
-      // Clear the form data from storage
+      // Clear application data from localStorage
       localStorage.removeItem('selectedJob');
       localStorage.removeItem('personalInfo');
       localStorage.removeItem('experiences');
-      localStorage.removeItem('pharmacistFiles');
-      sessionStorage.removeItem('applicationFiles');
 
-      // Redirect to home page after a short delay
-      setTimeout(() => {
-        router.push('/');
-      }, 2000);
-    } catch (error: any) {
-      console.error('Application submission error:', error);
-      toast.dismiss();
-      toast.error(error.message || 'حدث خطأ أثناء تقديم الطلب. يرجى المحاولة مرة أخرى.');
+      toast.success('تم إرسال طلبك بنجاح');
+      router.push('/apply/success');
+    } catch (error) {
+      console.error('Error submitting application:', error);
+      toast.error('حدث خطأ أثناء إرسال الطلب');
     } finally {
-      setSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 
-  if (!formData.job || !formData.personalInfo || !formData.experiences) {
+  if (!selectedJob || !personalInfo || !experiences) {
     return null;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 py-12">
       <div className="max-w-3xl mx-auto">
-        <ProgressBar currentStep={currentStep} totalSteps={5} steps={steps} />
+        <ProgressBar currentStep={4} totalSteps={5} steps={steps} />
 
-        <div className="mt-10 bg-white shadow-sm rounded-lg p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">مراجعة البيانات</h2>
+        <div className="mt-10 bg-white shadow-sm rounded-lg p-8">
+          <h2 className="text-2xl font-bold text-emerald-900 mb-6">مراجعة الطلب</h2>
 
-          {/* Job Information */}
-          <div className="border-b border-gray-200 pb-6 mb-6">
-            <div className="flex justify-between items-start mb-4">
-              <h3 className="text-lg font-medium text-gray-900">الوظيفة المختارة</h3>
-              <button
-                onClick={() => handleEdit('job')}
-                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-              >
-                تعديل
-              </button>
+          <div className="space-y-8">
+            {/* Job Information */}
+            <div>
+              <h3 className="text-lg font-semibold text-emerald-900 mb-4">الوظيفة المطلوبة</h3>
+              <div className="bg-emerald-50 rounded-lg p-4">
+                <p className="text-emerald-800 font-medium">{selectedJob.title}</p>
+                <p className="text-emerald-600 mt-2">{selectedJob.description}</p>
+              </div>
             </div>
-            <p className="text-gray-600">{formData.job.title}</p>
-          </div>
 
-          {/* Personal Information */}
-          <div className="border-b border-gray-200 pb-6 mb-6">
-            <div className="flex justify-between items-start mb-4">
-              <h3 className="text-lg font-medium text-gray-900">البيانات الشخصية</h3>
-              <button
-                onClick={() => handleEdit('personal')}
-                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-              >
-                تعديل
-              </button>
-            </div>
-            <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
-              <div>
-                <dt className="text-sm font-medium text-gray-500">الاسم الكامل</dt>
-                <dd className="mt-1 text-gray-900">{formData.personalInfo.fullName}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">الرقم القومي</dt>
-                <dd className="mt-1 text-gray-900">{formData.personalInfo.nationalId}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">المؤهل التعليمي</dt>
-                <dd className="mt-1 text-gray-900">{formData.personalInfo.educationLevel}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">وسيلة الحركة</dt>
-                <dd className="mt-1 text-gray-900">{formData.personalInfo.transportation}</dd>
-              </div>
-              <div className="sm:col-span-2">
-                <dt className="text-sm font-medium text-gray-500">العنوان</dt>
-                <dd className="mt-1 text-gray-900">{formData.personalInfo.address}</dd>
-              </div>
-              <div className="sm:col-span-2">
-                <dt className="text-sm font-medium text-gray-500">المستندات المرفقة</dt>
-                <dd className="mt-2 space-y-2">
-                  {Object.entries(formData.personalInfo.files).map(([key, value]: [string, any]) => (
-                    value && (
-                      <div key={key} className="flex items-center text-gray-600">
-                        <DocumentIcon className="h-5 w-5 ml-2" />
-                        <span>{value.name}</span>
-                      </div>
-                    )
-                  ))}
-                </dd>
-              </div>
-            </dl>
-          </div>
-
-          {/* Experience Information */}
-          <div className="border-b border-gray-200 pb-6 mb-6">
-            <div className="flex justify-between items-start mb-4">
-              <h3 className="text-lg font-medium text-gray-900">الخبرات السابقة</h3>
-              <button
-                onClick={() => handleEdit('experience')}
-                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-              >
-                تعديل
-              </button>
-            </div>
-            <div className="space-y-6">
-              {formData.experiences.experiences.map((exp: any, index: number) => (
-                <div key={index} className="border rounded-lg p-4">
-                  <h4 className="font-medium text-gray-900 mb-2">خبرة {index + 1}</h4>
-                  <dl className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">اسم الصيدلية</dt>
-                      <dd className="mt-1 text-gray-900">{exp.pharmacyName}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">رقم هاتف المدير</dt>
-                      <dd className="mt-1 text-gray-900">{exp.managerPhone}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">تاريخ بدء العمل</dt>
-                      <dd className="mt-1 text-gray-900">{exp.startDate}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">تاريخ ترك العمل</dt>
-                      <dd className="mt-1 text-gray-900">{exp.endDate}</dd>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <dt className="text-sm font-medium text-gray-500">سبب ترك العمل</dt>
-                      <dd className="mt-1 text-gray-900">{exp.leavingReason}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">متوسط المبيعات</dt>
-                      <dd className="mt-1 text-gray-900">{exp.averageSales} جنيه</dd>
-                    </div>
-                  </dl>
+            {/* Personal Information */}
+            <div>
+              <h3 className="text-lg font-semibold text-emerald-900 mb-4">البيانات الشخصية</h3>
+              <div className="bg-gray-50 rounded-lg p-6 space-y-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <p className="text-sm text-gray-500">الاسم بالكامل</p>
+                    <p className="mt-1 text-gray-900">{personalInfo.fullName}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">البريد الإلكتروني</p>
+                    <p className="mt-1 text-gray-900">{personalInfo.email}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">رقم الهاتف</p>
+                    <p className="mt-1 text-gray-900">{personalInfo.phone}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">تاريخ الميلاد</p>
+                    <p className="mt-1 text-gray-900">{new Date(personalInfo.birthDate).toLocaleDateString('ar-EG')}</p>
+                  </div>
                 </div>
-              ))}
+                <div>
+                  <p className="text-sm text-gray-500">العنوان</p>
+                  <p className="mt-1 text-gray-900">{personalInfo.address}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">السيرة الذاتية</p>
+                  <div className="mt-1 flex items-center space-x-2 space-x-reverse">
+                    <DocumentIcon className="h-5 w-5 text-emerald-500" />
+                    <a
+                      href={personalInfo.resume}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-emerald-600 hover:text-emerald-800"
+                    >
+                      عرض السيرة الذاتية
+                    </a>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div className="flex justify-between">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              disabled={submitting}
-              className="bg-gray-100 text-gray-800 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
-            >
-              رجوع
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="bg-blue-600 text-white px-6 py-2 rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 flex items-center"
-            >
-              {submitting ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  جاري التقديم...
-                </>
-              ) : (
-                'تقديم الطلب'
-              )}
-            </button>
+            {/* Experience Information */}
+            <div>
+              <h3 className="text-lg font-semibold text-emerald-900 mb-4">الخبرات السابقة</h3>
+              <div className="space-y-4">
+                {experiences.experiences.map((experience: any, index: number) => (
+                  <div key={index} className="bg-gray-50 rounded-lg p-6 space-y-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div>
+                        <p className="text-sm text-gray-500">اسم الشركة</p>
+                        <p className="mt-1 text-gray-900">{experience.company}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">المسمى الوظيفي</p>
+                        <p className="mt-1 text-gray-900">{experience.position}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">تاريخ البدء</p>
+                        <p className="mt-1 text-gray-900">{new Date(experience.startDate).toLocaleDateString('ar-EG')}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">تاريخ الانتهاء</p>
+                        <p className="mt-1 text-gray-900">{new Date(experience.endDate).toLocaleDateString('ar-EG')}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">المسؤوليات والإنجازات</p>
+                      <p className="mt-1 text-gray-900 whitespace-pre-wrap">{experience.responsibilities}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center pt-4">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="btn-secondary"
+              >
+                رجوع
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className="btn-primary"
+              >
+                {isSubmitting ? 'جاري الإرسال...' : 'إرسال الطلب'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
